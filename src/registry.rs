@@ -19,9 +19,15 @@ struct Layer {
 
 /// Pulls an image from Docker Hub and unzips its layers to the local rustpod image cache.
 pub fn pull_image(image: &str, tag: &str) -> Result<(), String> {
+    let full_image = if image.contains('/') {
+        image.to_string()
+    } else {
+        format!("library/{}", image)
+    };
+
     let auth_url = format!(
         "https://auth.docker.io/token?service=registry.docker.io&scope=repository:{}:pull",
-        image
+        full_image
     );
 
     // 1. Get Auth Token
@@ -35,8 +41,8 @@ pub fn pull_image(image: &str, tag: &str) -> Result<(), String> {
 
     // 2. Get Manifest
     let manifest_url = format!(
-        "https://registry.hub.docker.com/v2/{}/manifests/{}",
-        image, tag
+        "https://registry-1.docker.io/v2/{}/manifests/{}",
+        full_image, tag
     );
 
     let manifest_resp: ManifestResponse = ureq::get(&manifest_url)
@@ -65,8 +71,8 @@ pub fn pull_image(image: &str, tag: &str) -> Result<(), String> {
     for (i, layer) in manifest_resp.layers.iter().enumerate() {
         println!("Downloading layer {}/{} ({})", i + 1, manifest_resp.layers.len(), layer.digest);
         let layer_url = format!(
-            "https://registry.hub.docker.com/v2/{}/blobs/{}",
-            image, layer.digest
+            "https://registry-1.docker.io/v2/{}/blobs/{}",
+            full_image, layer.digest
         );
 
         let layer_resp = ureq::get(&layer_url)
