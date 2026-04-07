@@ -7,12 +7,30 @@ struct TokenResponse {
     token: String,
 }
 
-#[derive(Deserialize)]
-struct ManifestResponse {
-    layers: Vec<Layer>,
+#[derive(Deserialize, Debug)]
+#[serde(untagged)]
+enum RegistryResponse {
+    ManifestList {
+        manifests: Vec<ManifestReference>,
+    },
+    Manifest {
+        layers: Vec<Layer>,
+    },
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
+struct ManifestReference {
+    digest: String,
+    platform: Option<Platform>,
+}
+
+#[derive(Deserialize, Debug)]
+struct Platform {
+    architecture: Option<String>,
+    os: Option<String>,
+}
+
+#[derive(Deserialize, Debug)]
 struct Layer {
     digest: String,
 }
@@ -39,22 +57,47 @@ pub fn pull_image(image: &str, tag: &str) -> Result<(), String> {
 
     let token = token_resp.token;
 
-    // 2. Get Manifest
-    let manifest_url = format!(
-        "https://registry-1.docker.io/v2/{}/manifests/{}",
-        full_image, tag
-    );
+    // 2. Function to fetch manifest by reference
+    let fetch_manifest = |reference: &str| -> Result<RegistryResponse, String> {
+        let manifest_url = format!(
+            "https://registry-1.docker.io/v2/{}/manifests/{}",
+            full_image, reference
+        );
 
-    let manifest_resp: ManifestResponse = ureq::get(&manifest_url)
-        .set("Authorization", &format!("Bearer {}", token))
-        .set(
-            "Accept",
-            "application/vnd.docker.distribution.manifest.v2+json",
-        )
-        .call()
-        .map_err(|e| format!("Manifest request failed: {}", e))?
-        .into_json()
-        .map_err(|e| format!("Failed to parse manifest: {}", e))?;
+        ureq::get(&manifest_url)
+            .set("Authorization", &format!("Bearer {}", token))
+            .set("Accept", "application/vnd.docker.distribution.manifest.v2+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.oci.image.manifest.v1+json, application/vnd.oci.image.index.v1+json")
+            .call()
+            .map_err(|e| format!("Manifest request failed: {}", e))?
+            .into_json()
+            .map_err(|e| format!("Failed to parse manifest: {}", e))
+    };
+
+    let mut response = fetch_manifest(tag)?;
+
+    // 3. Resolve manifest list to specific arch if needed
+    if let RegistryResponse::ManifestList { manifests } = response {
+        let target_arch = "amd64"; // For simplicity, we hardcode amd64. 
+        let target_os = "linux";
+        
+        let mut target_digest = manifests.first().map(|m| m.digest.clone()).ok_or("Empty manifest list")?;
+        for m in manifests {
+            if let Some(p) = &m.platform {
+                if p.architecture.as_deref() == Some(target_arch) && p.os.as_deref() == Some(target_os) {
+                    target_digest = m.digest.clone();
+                    break;
+                }
+            }
+        }
+        
+        // Re-fetch using the specific platform digest
+        response = fetch_manifest(&target_digest)?;
+    }
+
+    let layers = match response {
+        RegistryResponse::Manifest { layers } => layers,
+        _ => return Err("Expected manifest but got manifest list".to_string()),
+    };
 
     // 3. Prepare target directory
     let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
@@ -68,8 +111,8 @@ pub fn pull_image(image: &str, tag: &str) -> Result<(), String> {
     fs::create_dir_all(&target_dir).map_err(|e| e.to_string())?;
 
     // 4. Download and extract layers
-    for (i, layer) in manifest_resp.layers.iter().enumerate() {
-        println!("Downloading layer {}/{} ({})", i + 1, manifest_resp.layers.len(), layer.digest);
+    for (i, layer) in layers.iter().enumerate() {
+        println!("Downloading layer {}/{} ({})", i + 1, layers.len(), layer.digest);
         let layer_url = format!(
             "https://registry-1.docker.io/v2/{}/blobs/{}",
             full_image, layer.digest
