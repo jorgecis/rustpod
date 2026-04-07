@@ -83,11 +83,11 @@ pub fn pull_image(image: &str, tag: &str) -> Result<(), String> {
         for m in manifests {
             if let Some(p) = &m.platform
                 && p.architecture.as_deref() == Some(target_arch)
-                    && p.os.as_deref() == Some(target_os)
-                {
-                    target_digest = m.digest.clone();
-                    break;
-                }
+                && p.os.as_deref() == Some(target_os)
+            {
+                target_digest = m.digest.clone();
+                break;
+            }
         }
 
         // Re-fetch using the specific platform digest
@@ -155,8 +155,9 @@ pub fn list_images() -> Result<(), String> {
     }
 
     println!("REPOSITORY\tTAG");
-    for repo_entry in
-        fs::read_dir(images_dir).map_err(|e| format!("Failed to read images root: {}", e))?.flatten()
+    for repo_entry in fs::read_dir(images_dir)
+        .map_err(|e| format!("Failed to read images root: {}", e))?
+        .flatten()
     {
         let repo = repo_entry.file_name().into_string().unwrap_or_default();
         let repo_path = repo_entry.path();
@@ -220,7 +221,6 @@ pub fn logout(server: Option<String>) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
-    
 
     // Since network requests can fail in automated environments, we just do a tiny structural test here
     #[test]
@@ -234,5 +234,25 @@ mod tests {
             auth_url,
             "https://auth.docker.io/token?service=registry.docker.io&scope=repository:library/alpine:pull"
         );
+    }
+
+    #[test]
+    fn test_pull_hello_world() {
+        // This is an integration test that actually pulls an image to local storage.
+        // Needs network access.
+        let result = pull_image("hello-world", "latest");
+        assert!(
+            result.is_ok(),
+            "Failed to pull hello-world image: {:?}",
+            result
+        );
+
+        let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
+        let target_dir = Path::new(&home)
+            .join(".rustpod")
+            .join("images")
+            .join("hello-world")
+            .join("latest");
+        assert!(target_dir.exists(), "Target directory was not created.");
     }
 }

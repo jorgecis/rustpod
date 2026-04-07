@@ -63,6 +63,8 @@ pub struct SubnetInfo {
 }
 
 pub fn setup_network(container_id: &str, netns_path: &str) -> Result<String, String> {
+    let netavark_path = find_netavark()?;
+
     let mut networks = std::collections::HashMap::new();
     networks.insert(
         "rustpod-net".to_string(),
@@ -97,7 +99,7 @@ pub fn setup_network(container_id: &str, netns_path: &str) -> Result<String, Str
 
     // the config dir for netavark is typically /var/lib/netavark or /etc/cni/net.d
     // the command: netavark setup <config-dir> <netns>
-    let mut child = Command::new("netavark")
+    let mut child = Command::new(&netavark_path)
         .arg("setup")
         .arg("/var/lib/rustpod/netavark")
         .arg(netns_path)
@@ -124,6 +126,32 @@ pub fn setup_network(container_id: &str, netns_path: &str) -> Result<String, Str
 
     let out_str = String::from_utf8_lossy(&output.stdout);
     Ok(out_str.to_string())
+}
+
+fn find_netavark() -> Result<String, String> {
+    let paths = [
+        "/usr/libexec/podman/netavark",
+        "/usr/lib/podman/netavark",
+        "/usr/local/libexec/podman/netavark",
+    ];
+
+    for p in paths.iter() {
+        if std::path::Path::new(p).exists() {
+            return Ok(p.to_string());
+        }
+    }
+
+    // If we're here, we try checking PATH
+    if let Ok(path) = std::env::var("PATH") {
+        for p in path.split(':') {
+            let candidate = std::path::Path::new(p).join("netavark");
+            if candidate.exists() {
+                return Ok(candidate.to_string_lossy().to_string());
+            }
+        }
+    }
+
+    Err("Could not find netavark executable in PATH or /usr/libexec/podman. Please ensure it is installed.".to_string())
 }
 
 #[cfg(test)]

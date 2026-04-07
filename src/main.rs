@@ -145,12 +145,29 @@ fn run_container(id: &str, image: &str, cmd: &[String]) -> Result<(), String> {
 
     // 4. Setup Network with Netavark
     println!("Setting up network...");
-    let netavark_result = netavark::setup_network(id, &netns_path)?;
-    println!("Network configured: {}", netavark_result);
+    let mut actual_netns: Option<String> = None;
+    match netavark::setup_network(id, &netns_path) {
+        Ok(netavark_result) => {
+            println!("Network configured: {}", netavark_result);
+            actual_netns = Some(netns_path.clone());
+        }
+        Err(e) => {
+            println!(
+                "Warning: Skipping custom networking (using host). Reason: {}",
+                e
+            );
+            // Clean up the unused netns right away manually
+            let _ = std::process::Command::new("ip")
+                .arg("netns")
+                .arg("delete")
+                .arg(&netns_name)
+                .output();
+        }
+    }
 
     // 5. Generate OCI Spec
     println!("Generating OCI spec...");
-    crun::generate_spec(&bundle_dir, &rootfs_path, cmd, Some(&netns_path))?;
+    crun::generate_spec(&bundle_dir, &rootfs_path, cmd, actual_netns.as_deref())?;
 
     // 6. Run container using crun
     println!("Running container: {}", id);
@@ -159,11 +176,13 @@ fn run_container(id: &str, image: &str, cmd: &[String]) -> Result<(), String> {
     // 7. Cleanup Network
     // Note: A full implementation would call `netavark teardown` and remove the netns.
     println!("Cleaning up...");
-    let _ = std::process::Command::new("ip")
-        .arg("netns")
-        .arg("delete")
-        .arg(&netns_name)
-        .output();
+    if actual_netns.is_some() {
+        let _ = std::process::Command::new("ip")
+            .arg("netns")
+            .arg("delete")
+            .arg(&netns_name)
+            .output();
+    }
     let _ = std::fs::remove_dir_all(&bundle_dir);
 
     run_res

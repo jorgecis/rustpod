@@ -49,24 +49,25 @@ pub fn generate_spec(
     // 4. Modify network namespace if provided
     if let Some(netns) = netns_path
         && let Some(linux) = spec.get_mut("linux")
-            && let Some(namespaces) = linux.get_mut("namespaces").and_then(|n| n.as_array_mut()) {
-                // Find network namespace and update its path
-                let mut found_net = false;
-                for ns in namespaces.iter_mut() {
-                    if ns.get("type").and_then(|t| t.as_str()) == Some("network") {
-                        ns["path"] = Value::String(netns.to_string());
-                        found_net = true;
-                        break;
-                    }
-                }
-
-                if !found_net {
-                    let mut new_ns = serde_json::Map::new();
-                    new_ns.insert("type".to_string(), Value::String("network".to_string()));
-                    new_ns.insert("path".to_string(), Value::String(netns.to_string()));
-                    namespaces.push(Value::Object(new_ns));
-                }
+        && let Some(namespaces) = linux.get_mut("namespaces").and_then(|n| n.as_array_mut())
+    {
+        // Find network namespace and update its path
+        let mut found_net = false;
+        for ns in namespaces.iter_mut() {
+            if ns.get("type").and_then(|t| t.as_str()) == Some("network") {
+                ns["path"] = Value::String(netns.to_string());
+                found_net = true;
+                break;
             }
+        }
+
+        if !found_net {
+            let mut new_ns = serde_json::Map::new();
+            new_ns.insert("type".to_string(), Value::String("network".to_string()));
+            new_ns.insert("path".to_string(), Value::String(netns.to_string()));
+            namespaces.push(Value::Object(new_ns));
+        }
+    }
 
     // Write back
     let new_config_content = serde_json::to_string_pretty(&spec)
