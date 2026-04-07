@@ -221,6 +221,7 @@ pub fn logout(server: Option<String>) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
 
     // Since network requests can fail in automated environments, we just do a tiny structural test here
     #[test]
