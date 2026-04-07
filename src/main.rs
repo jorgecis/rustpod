@@ -191,10 +191,10 @@ fn run_container(id: &str, image: &str, cmd: &[String]) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use clap::CommandFactory;
 
     #[test]
     fn verify_cli() {
-        use clap::CommandFactory;
         Cli::command().debug_assert();
     }
 }
