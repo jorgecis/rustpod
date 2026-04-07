@@ -3,7 +3,12 @@ use std::fs;
 use std::path::Path;
 use std::process::Command;
 
-pub fn generate_spec(bundle_dir: &Path, rootfs_path: &Path, cmd: &[String], netns_path: Option<&str>) -> Result<(), String> {
+pub fn generate_spec(
+    bundle_dir: &Path,
+    rootfs_path: &Path,
+    cmd: &[String],
+    netns_path: Option<&str>,
+) -> Result<(), String> {
     // 1. Generate default spec using crun
     let output = Command::new("crun")
         .arg("spec")
@@ -12,7 +17,10 @@ pub fn generate_spec(bundle_dir: &Path, rootfs_path: &Path, cmd: &[String], netn
         .map_err(|e| format!("Failed to run crun spec: {}", e))?;
 
     if !output.status.success() {
-        return Err(format!("crun spec error: {}", String::from_utf8_lossy(&output.stderr)));
+        return Err(format!(
+            "crun spec error: {}",
+            String::from_utf8_lossy(&output.stderr)
+        ));
     }
 
     let config_path = bundle_dir.join("config.json");
@@ -39,9 +47,9 @@ pub fn generate_spec(bundle_dir: &Path, rootfs_path: &Path, cmd: &[String], netn
     }
 
     // 4. Modify network namespace if provided
-    if let Some(netns) = netns_path {
-        if let Some(linux) = spec.get_mut("linux") {
-            if let Some(namespaces) = linux.get_mut("namespaces").and_then(|n| n.as_array_mut()) {
+    if let Some(netns) = netns_path
+        && let Some(linux) = spec.get_mut("linux")
+            && let Some(namespaces) = linux.get_mut("namespaces").and_then(|n| n.as_array_mut()) {
                 // Find network namespace and update its path
                 let mut found_net = false;
                 for ns in namespaces.iter_mut() {
@@ -51,7 +59,7 @@ pub fn generate_spec(bundle_dir: &Path, rootfs_path: &Path, cmd: &[String], netn
                         break;
                     }
                 }
-                
+
                 if !found_net {
                     let mut new_ns = serde_json::Map::new();
                     new_ns.insert("type".to_string(), Value::String("network".to_string()));
@@ -59,8 +67,6 @@ pub fn generate_spec(bundle_dir: &Path, rootfs_path: &Path, cmd: &[String], netn
                     namespaces.push(Value::Object(new_ns));
                 }
             }
-        }
-    }
 
     // Write back
     let new_config_content = serde_json::to_string_pretty(&spec)
@@ -80,7 +86,9 @@ pub fn run_container(bundle_dir: &Path, container_id: &str) -> Result<(), String
         .spawn()
         .map_err(|e| format!("Failed to start crun: {}", e))?;
 
-    let status = child.wait().map_err(|e| format!("Failed to wait for crun: {}", e))?;
+    let status = child
+        .wait()
+        .map_err(|e| format!("Failed to wait for crun: {}", e))?;
     if !status.success() {
         return Err(format!("crun exited with status: {}", status));
     }
@@ -95,9 +103,12 @@ pub fn list_containers() -> Result<(), String> {
         .map_err(|e| format!("Failed to run crun list: {}", e))?;
 
     if !output.status.success() {
-        return Err(format!("crun list error: {}", String::from_utf8_lossy(&output.stderr)));
+        return Err(format!(
+            "crun list error: {}",
+            String::from_utf8_lossy(&output.stderr)
+        ));
     }
-    
+
     // Pass strictly through output
     print!("{}", String::from_utf8_lossy(&output.stdout));
     Ok(())
@@ -105,7 +116,11 @@ pub fn list_containers() -> Result<(), String> {
 
 pub fn start_containers(containers: &[String]) -> Result<(), String> {
     for container in containers {
-        let status = Command::new("crun").arg("start").arg(container).status().map_err(|e| e.to_string())?;
+        let status = Command::new("crun")
+            .arg("start")
+            .arg(container)
+            .status()
+            .map_err(|e| e.to_string())?;
         if !status.success() {
             eprintln!("Failed to start container {}", container);
         } else {
@@ -117,7 +132,12 @@ pub fn start_containers(containers: &[String]) -> Result<(), String> {
 
 pub fn stop_containers(containers: &[String]) -> Result<(), String> {
     for container in containers {
-        let status = Command::new("crun").arg("kill").arg(container).arg("SIGTERM").status().map_err(|e| e.to_string())?;
+        let status = Command::new("crun")
+            .arg("kill")
+            .arg(container)
+            .arg("SIGTERM")
+            .status()
+            .map_err(|e| e.to_string())?;
         if !status.success() {
             eprintln!("Failed to stop container {}", container);
         } else {
@@ -129,7 +149,12 @@ pub fn stop_containers(containers: &[String]) -> Result<(), String> {
 
 pub fn rm_containers(containers: &[String]) -> Result<(), String> {
     for container in containers {
-        let status = Command::new("crun").arg("delete").arg("-f").arg(container).status().map_err(|e| e.to_string())?;
+        let status = Command::new("crun")
+            .arg("delete")
+            .arg("-f")
+            .arg(container)
+            .status()
+            .map_err(|e| e.to_string())?;
         if !status.success() {
             eprintln!("Failed to remove container {}", container);
         } else {
@@ -151,7 +176,9 @@ pub fn exec_container(container: &str, cmd: &[String]) -> Result<(), String> {
         .spawn()
         .map_err(|e| format!("Failed to start crun exec: {}", e))?;
 
-    let status = child.wait().map_err(|e| format!("Failed to wait for crun: {}", e))?;
+    let status = child
+        .wait()
+        .map_err(|e| format!("Failed to wait for crun: {}", e))?;
     if !status.success() {
         return Err(format!("crun exec exited with status: {}", status));
     }
@@ -160,17 +187,17 @@ pub fn exec_container(container: &str, cmd: &[String]) -> Result<(), String> {
 }
 
 pub fn logs_container(container: &str) -> Result<(), String> {
-    println!("Logs for container {}: (Not implemented natively, requires conmon)", container);
+    println!(
+        "Logs for container {}: (Not implemented natively, requires conmon)",
+        container
+    );
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn test_mock_spec_modification() {
         // We can't safely test actual crun executable in minimal CI, but we ensure module compiles
-        assert!(true);
     }
 }

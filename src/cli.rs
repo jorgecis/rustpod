@@ -38,38 +38,21 @@ pub enum Commands {
     /// List images in local storage (alias for `image ls`)
     Images,
     /// Remove one or more containers
-    Rm {
-        containers: Vec<String>,
-    },
+    Rm { containers: Vec<String> },
     /// Remove one or more images
-    Rmi {
-        images: Vec<String>,
-    },
+    Rmi { images: Vec<String> },
     /// Login to a container registry
-    Login {
-        server: Option<String>,
-    },
+    Login { server: Option<String> },
     /// Logout of a container registry
-    Logout {
-        server: Option<String>,
-    },
+    Logout { server: Option<String> },
     /// Execute a command in a running container
-    Exec {
-        container: String,
-        cmd: Vec<String>,
-    },
+    Exec { container: String, cmd: Vec<String> },
     /// Fetch the logs of a container
-    Logs {
-        container: String,
-    },
+    Logs { container: String },
     /// Start one or more containers
-    Start {
-        containers: Vec<String>,
-    },
+    Start { containers: Vec<String> },
     /// Stop one or more containers
-    Stop {
-        containers: Vec<String>,
-    },
+    Stop { containers: Vec<String> },
     /// Manage containers
     Container {
         #[command(subcommand)]
@@ -109,16 +92,16 @@ pub enum ContainerCommands {
     /// Create but do not start a container
     Create { image: String },
     /// Run a command in a new container
-    Run { 
+    Run {
         #[arg(short = 'i', long)]
         interactive: bool,
         #[arg(short = 't', long)]
         tty: bool,
         #[arg(long)]
         rm: bool,
-        image: String, 
+        image: String,
         #[arg(trailing_var_arg = true)]
-        cmd: Vec<String> 
+        cmd: Vec<String>,
     },
     /// Stop one or more containers
     Stop { containers: Vec<String> },

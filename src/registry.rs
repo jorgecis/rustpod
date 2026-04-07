@@ -1,6 +1,6 @@
 use serde::Deserialize;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 #[derive(Deserialize)]
 struct TokenResponse {
@@ -10,12 +10,8 @@ struct TokenResponse {
 #[derive(Deserialize, Debug)]
 #[serde(untagged)]
 enum RegistryResponse {
-    ManifestList {
-        manifests: Vec<ManifestReference>,
-    },
-    Manifest {
-        layers: Vec<Layer>,
-    },
+    ManifestList { manifests: Vec<ManifestReference> },
+    Manifest { layers: Vec<Layer> },
 }
 
 #[derive(Deserialize, Debug)]
@@ -79,17 +75,21 @@ pub fn pull_image(image: &str, tag: &str) -> Result<(), String> {
     if let RegistryResponse::ManifestList { manifests } = response {
         let target_arch = "amd64"; // For simplicity, we hardcode amd64. 
         let target_os = "linux";
-        
-        let mut target_digest = manifests.first().map(|m| m.digest.clone()).ok_or("Empty manifest list")?;
+
+        let mut target_digest = manifests
+            .first()
+            .map(|m| m.digest.clone())
+            .ok_or("Empty manifest list")?;
         for m in manifests {
-            if let Some(p) = &m.platform {
-                if p.architecture.as_deref() == Some(target_arch) && p.os.as_deref() == Some(target_os) {
+            if let Some(p) = &m.platform
+                && p.architecture.as_deref() == Some(target_arch)
+                    && p.os.as_deref() == Some(target_os)
+                {
                     target_digest = m.digest.clone();
                     break;
                 }
-            }
         }
-        
+
         // Re-fetch using the specific platform digest
         response = fetch_manifest(&target_digest)?;
     }
@@ -101,8 +101,12 @@ pub fn pull_image(image: &str, tag: &str) -> Result<(), String> {
 
     // 3. Prepare target directory
     let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
-    let target_dir = Path::new(&home).join(".rustpod").join("images").join(image).join(tag);
-    
+    let target_dir = Path::new(&home)
+        .join(".rustpod")
+        .join("images")
+        .join(image)
+        .join(tag);
+
     if target_dir.exists() {
         println!("Image already exists locally at {:?}", target_dir);
         // We'll clean it for a fresh pull, or we could skip. Let's recreate.
@@ -112,7 +116,12 @@ pub fn pull_image(image: &str, tag: &str) -> Result<(), String> {
 
     // 4. Download and extract layers
     for (i, layer) in layers.iter().enumerate() {
-        println!("Downloading layer {}/{} ({})", i + 1, layers.len(), layer.digest);
+        println!(
+            "Downloading layer {}/{} ({})",
+            i + 1,
+            layers.len(),
+            layer.digest
+        );
         let layer_url = format!(
             "https://registry-1.docker.io/v2/{}/blobs/{}",
             full_image, layer.digest
@@ -126,51 +135,35 @@ pub fn pull_image(image: &str, tag: &str) -> Result<(), String> {
         let reader = layer_resp.into_reader();
         let decompressed = flate2::read::GzDecoder::new(reader);
         let mut archive = tar::Archive::new(decompressed);
-        
-        archive.unpack(&target_dir).map_err(|e| format!("Extract failed: {}", e))?;
+
+        archive
+            .unpack(&target_dir)
+            .map_err(|e| format!("Extract failed: {}", e))?;
     }
 
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    // Since network requests can fail in automated environments, we just do a tiny structural test here
-    #[test]
-    fn test_auth_url_format() {
-        let image = "library/alpine";
-        let auth_url = format!(
-            "https://auth.docker.io/token?service=registry.docker.io&scope=repository:{}:pull",
-            image
-        );
-        assert_eq!(auth_url, "https://auth.docker.io/token?service=registry.docker.io&scope=repository:library/alpine:pull");
-    }
 }
 
 /// Helper method to list local images
 pub fn list_images() -> Result<(), String> {
     let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
     let images_dir = Path::new(&home).join(".rustpod").join("images");
-    
+
     if !images_dir.exists() {
         println!("REPOSITORY\tTAG");
         return Ok(());
     }
 
     println!("REPOSITORY\tTAG");
-    for entry in fs::read_dir(images_dir).map_err(|e| format!("Failed to read images root: {}", e))? {
-        if let Ok(repo_entry) = entry {
-            let repo = repo_entry.file_name().into_string().unwrap_or_default();
-            let repo_path = repo_entry.path();
-            if repo_path.is_dir() {
-                for tag_entry in fs::read_dir(repo_path).unwrap() {
-                    if let Ok(tag_dir) = tag_entry {
-                        let tag = tag_dir.file_name().into_string().unwrap_or_default();
-                        println!("{}\t{}", repo, tag);
-                    }
-                }
+    for repo_entry in
+        fs::read_dir(images_dir).map_err(|e| format!("Failed to read images root: {}", e))?.flatten()
+    {
+        let repo = repo_entry.file_name().into_string().unwrap_or_default();
+        let repo_path = repo_entry.path();
+        if repo_path.is_dir() {
+            for tag_dir in fs::read_dir(repo_path).unwrap().flatten() {
+                let tag = tag_dir.file_name().into_string().unwrap_or_default();
+                println!("{}\t{}", repo, tag);
             }
         }
     }
@@ -189,12 +182,16 @@ pub fn remove_images(images: &[String]) -> Result<(), String> {
 
         let target_dir = images_dir.join(repo).join(tag);
         if target_dir.exists() {
-            fs::remove_dir_all(&target_dir).map_err(|e| format!("Failed to remove {}: {}", image, e))?;
+            fs::remove_dir_all(&target_dir)
+                .map_err(|e| format!("Failed to remove {}: {}", image, e))?;
             println!("Untagged and removed: {}:{}", repo, tag);
-            
+
             // Clean up repo folder if empty
             let repo_dir = images_dir.join(repo);
-            if fs::read_dir(&repo_dir).map(|mut iter| iter.next().is_none()).unwrap_or(false) {
+            if fs::read_dir(&repo_dir)
+                .map(|mut iter| iter.next().is_none())
+                .unwrap_or(false)
+            {
                 let _ = fs::remove_dir(&repo_dir);
             }
         } else {
@@ -205,12 +202,37 @@ pub fn remove_images(images: &[String]) -> Result<(), String> {
 }
 
 pub fn login(server: Option<String>) -> Result<(), String> {
-    println!("Login Succeeded for {}", server.unwrap_or_else(|| "docker.io".to_string()));
+    println!(
+        "Login Succeeded for {}",
+        server.unwrap_or_else(|| "docker.io".to_string())
+    );
     // Note: stub implementation. Actual implementation would require storing auth token standard config.
     Ok(())
 }
 
 pub fn logout(server: Option<String>) -> Result<(), String> {
-    println!("Removing login credentials for {}", server.unwrap_or_else(|| "docker.io".to_string()));
+    println!(
+        "Removing login credentials for {}",
+        server.unwrap_or_else(|| "docker.io".to_string())
+    );
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    
+
+    // Since network requests can fail in automated environments, we just do a tiny structural test here
+    #[test]
+    fn test_auth_url_format() {
+        let image = "library/alpine";
+        let auth_url = format!(
+            "https://auth.docker.io/token?service=registry.docker.io&scope=repository:{}:pull",
+            image
+        );
+        assert_eq!(
+            auth_url,
+            "https://auth.docker.io/token?service=registry.docker.io&scope=repository:library/alpine:pull"
+        );
+    }
 }

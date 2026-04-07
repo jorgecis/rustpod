@@ -13,45 +13,101 @@ fn main() {
     match &cli.command {
         Commands::Pull { image, tag } => {
             println!("Pulling image {}:{}", image, tag);
-            let _ = registry::pull_image(image, tag).map_err(|e| { eprintln!("{}", e); std::process::exit(1); });
+            let _ = registry::pull_image(image, tag).map_err(|e| {
+                eprintln!("{}", e);
+                std::process::exit(1);
+            });
         }
         Commands::Run { image, cmd, .. } => {
-            let id = format!("rustpod-{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs());
-            let _ = run_container(&id, image, cmd).map_err(|e| { eprintln!("{}", e); std::process::exit(1); });
+            let id = format!(
+                "rustpod-{}",
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_secs()
+            );
+            let _ = run_container(&id, image, cmd).map_err(|e| {
+                eprintln!("{}", e);
+                std::process::exit(1);
+            });
         }
-        Commands::Ps => { let _ = crun::list_containers().map_err(|e| eprintln!("{}", e)); }
-        Commands::Images => { let _ = registry::list_images().map_err(|e| eprintln!("{}", e)); }
-        Commands::Rm { containers } => { let _ = crun::rm_containers(containers).map_err(|e| eprintln!("{}", e)); }
-        Commands::Rmi { images } => { let _ = registry::remove_images(images).map_err(|e| eprintln!("{}", e)); }
-        Commands::Login { server } => { let _ = registry::login(server.clone()).map_err(|e| eprintln!("{}", e)); }
-        Commands::Logout { server } => { let _ = registry::logout(server.clone()).map_err(|e| eprintln!("{}", e)); }
-        Commands::Exec { container, cmd } => { let _ = crun::exec_container(container, cmd).map_err(|e| eprintln!("{}", e)); }
-        Commands::Logs { container } => { let _ = crun::logs_container(container).map_err(|e| eprintln!("{}", e)); }
-        Commands::Start { containers } => { let _ = crun::start_containers(containers).map_err(|e| eprintln!("{}", e)); }
-        Commands::Stop { containers } => { let _ = crun::stop_containers(containers).map_err(|e| eprintln!("{}", e)); }
-        Commands::Image { cmd } => {
-            match cmd {
-                ImageCommands::Pull { image, tag } => { let _ = registry::pull_image(image, tag).map_err(|e| eprintln!("{}", e)); }
-                ImageCommands::Ls => { let _ = registry::list_images().map_err(|e| eprintln!("{}", e)); }
-                ImageCommands::Rm { images } => { let _ = registry::remove_images(images).map_err(|e| eprintln!("{}", e)); }
-                _ => println!("Not implemented yet: {:?}", cmd),
+        Commands::Ps => {
+            let _ = crun::list_containers().map_err(|e| eprintln!("{}", e));
+        }
+        Commands::Images => {
+            let _ = registry::list_images().map_err(|e| eprintln!("{}", e));
+        }
+        Commands::Rm { containers } => {
+            let _ = crun::rm_containers(containers).map_err(|e| eprintln!("{}", e));
+        }
+        Commands::Rmi { images } => {
+            let _ = registry::remove_images(images).map_err(|e| eprintln!("{}", e));
+        }
+        Commands::Login { server } => {
+            let _ = registry::login(server.clone()).map_err(|e| eprintln!("{}", e));
+        }
+        Commands::Logout { server } => {
+            let _ = registry::logout(server.clone()).map_err(|e| eprintln!("{}", e));
+        }
+        Commands::Exec { container, cmd } => {
+            let _ = crun::exec_container(container, cmd).map_err(|e| eprintln!("{}", e));
+        }
+        Commands::Logs { container } => {
+            let _ = crun::logs_container(container).map_err(|e| eprintln!("{}", e));
+        }
+        Commands::Start { containers } => {
+            let _ = crun::start_containers(containers).map_err(|e| eprintln!("{}", e));
+        }
+        Commands::Stop { containers } => {
+            let _ = crun::stop_containers(containers).map_err(|e| eprintln!("{}", e));
+        }
+        Commands::Image { cmd } => match cmd {
+            ImageCommands::Pull { image, tag } => {
+                let _ = registry::pull_image(image, tag).map_err(|e| eprintln!("{}", e));
             }
-        }
-        Commands::Container { cmd } => {
-            match cmd {
-                ContainerCommands::Run { image, cmd: run_cmd, .. } => {
-                    let id = format!("rustpod-{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs());
-                    let _ = run_container(&id, image, run_cmd).map_err(|e| eprintln!("{}", e));
-                }
-                ContainerCommands::Ls => { let _ = crun::list_containers().map_err(|e| eprintln!("{}", e)); }
-                ContainerCommands::Rm { containers } => { let _ = crun::rm_containers(containers).map_err(|e| eprintln!("{}", e)); }
-                ContainerCommands::Start { containers } => { let _ = crun::start_containers(containers).map_err(|e| eprintln!("{}", e)); }
-                ContainerCommands::Stop { containers } => { let _ = crun::stop_containers(containers).map_err(|e| eprintln!("{}", e)); }
-                ContainerCommands::Exec { container, cmd } => { let _ = crun::exec_container(container, cmd).map_err(|e| eprintln!("{}", e)); }
-                ContainerCommands::Logs { container } => { let _ = crun::logs_container(container).map_err(|e| eprintln!("{}", e)); }
-                _ => println!("Not implemented yet: {:?}", cmd),
+            ImageCommands::Ls => {
+                let _ = registry::list_images().map_err(|e| eprintln!("{}", e));
             }
-        }
+            ImageCommands::Rm { images } => {
+                let _ = registry::remove_images(images).map_err(|e| eprintln!("{}", e));
+            }
+            _ => println!("Not implemented yet: {:?}", cmd),
+        },
+        Commands::Container { cmd } => match cmd {
+            ContainerCommands::Run {
+                image,
+                cmd: run_cmd,
+                ..
+            } => {
+                let id = format!(
+                    "rustpod-{}",
+                    std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap()
+                        .as_secs()
+                );
+                let _ = run_container(&id, image, run_cmd).map_err(|e| eprintln!("{}", e));
+            }
+            ContainerCommands::Ls => {
+                let _ = crun::list_containers().map_err(|e| eprintln!("{}", e));
+            }
+            ContainerCommands::Rm { containers } => {
+                let _ = crun::rm_containers(containers).map_err(|e| eprintln!("{}", e));
+            }
+            ContainerCommands::Start { containers } => {
+                let _ = crun::start_containers(containers).map_err(|e| eprintln!("{}", e));
+            }
+            ContainerCommands::Stop { containers } => {
+                let _ = crun::stop_containers(containers).map_err(|e| eprintln!("{}", e));
+            }
+            ContainerCommands::Exec { container, cmd } => {
+                let _ = crun::exec_container(container, cmd).map_err(|e| eprintln!("{}", e));
+            }
+            ContainerCommands::Logs { container } => {
+                let _ = crun::logs_container(container).map_err(|e| eprintln!("{}", e));
+            }
+            _ => println!("Not implemented yet: {:?}", cmd),
+        },
         _ => println!("Not implemented yet: {:?}", cli.command),
     }
 }
@@ -60,8 +116,12 @@ fn run_container(id: &str, image: &str, cmd: &[String]) -> Result<(), String> {
     // 1. Verify and resolve image
     let tag = "latest"; // Simplified for now
     let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
-    let rootfs_path = std::path::Path::new(&home).join(".rustpod").join("images").join(image).join(tag);
-    
+    let rootfs_path = std::path::Path::new(&home)
+        .join(".rustpod")
+        .join("images")
+        .join(image)
+        .join(tag);
+
     if !rootfs_path.exists() {
         println!("Image not found locally, pulling...");
         registry::pull_image(image, tag)?;
@@ -69,14 +129,19 @@ fn run_container(id: &str, image: &str, cmd: &[String]) -> Result<(), String> {
 
     // 2. Prepare bundle directory
     let bundle_dir = std::path::Path::new("/run/rustpod/bundles").join(id);
-    std::fs::create_dir_all(&bundle_dir).map_err(|e| format!("Failed to create bundle dir: {}", e))?;
+    std::fs::create_dir_all(&bundle_dir)
+        .map_err(|e| format!("Failed to create bundle dir: {}", e))?;
 
     // 3. Create Network Namespace
     let netns_name = format!("rustpod-{}", id);
     let netns_path = format!("/var/run/netns/{}", netns_name);
-    
+
     // We try to add the netns, ignore error if it exists
-    let _ = std::process::Command::new("ip").arg("netns").arg("add").arg(&netns_name).output();
+    let _ = std::process::Command::new("ip")
+        .arg("netns")
+        .arg("add")
+        .arg(&netns_name)
+        .output();
 
     // 4. Setup Network with Netavark
     println!("Setting up network...");
@@ -94,7 +159,11 @@ fn run_container(id: &str, image: &str, cmd: &[String]) -> Result<(), String> {
     // 7. Cleanup Network
     // Note: A full implementation would call `netavark teardown` and remove the netns.
     println!("Cleaning up...");
-    let _ = std::process::Command::new("ip").arg("netns").arg("delete").arg(&netns_name).output();
+    let _ = std::process::Command::new("ip")
+        .arg("netns")
+        .arg("delete")
+        .arg(&netns_name)
+        .output();
     let _ = std::fs::remove_dir_all(&bundle_dir);
 
     run_res

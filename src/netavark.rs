@@ -37,22 +37,26 @@ pub struct Subnet {
     pub gateway: String,
 }
 
+#[allow(dead_code)]
 #[derive(Deserialize, Debug)]
 pub struct NetavarkResult {
     // Netavark returns details about the configured IPs, etc.
     pub podman: Option<NetworkStatus>,
 }
 
+#[allow(dead_code)]
 #[derive(Deserialize, Debug)]
 pub struct NetworkStatus {
     pub interfaces: Option<std::collections::HashMap<String, InterfaceInfo>>,
 }
 
+#[allow(dead_code)]
 #[derive(Deserialize, Debug)]
 pub struct InterfaceInfo {
     pub subnets: Option<Vec<SubnetInfo>>,
 }
 
+#[allow(dead_code)]
 #[derive(Deserialize, Debug)]
 pub struct SubnetInfo {
     pub ipnet: String,
